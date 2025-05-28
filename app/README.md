@@ -4,10 +4,12 @@ This section holds all of the projects python scripts that will be needed to con
 
 ## Current files
 
-# convert_gpt2_to_onnx.py
+### convert_gpt2_to_onnx.py
 This script converts the openai-community/gpt2 huggingface model to onnx and then runs through 100 tests to create a performance report so that we  can see exactly how the model is performing on the system.
 
 Example output:
+![image](https://github.com/user-attachments/assets/dc48c495-2554-49f7-a1de-810498503b82)
+
 
 
 
