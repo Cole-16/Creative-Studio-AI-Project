@@ -3,6 +3,9 @@
 ## Overview
 This repository contains materials for the Content Creation AI project choice  for the "Deploying Edge AI" master's level course. The current models in use for this project are openai-community/gpt2 and CompVis/stable-diffusion-v1-4. These will update as the project expands. The main goal of this project is to complete this project scope. 
 
+![image](https://github.com/user-attachments/assets/4ec4c32c-ad25-407e-a9f4-fffabe35cf00)
+
+
 
 
 ## Architecture Diagram
