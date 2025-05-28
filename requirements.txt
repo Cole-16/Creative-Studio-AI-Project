@@ -1,0 +1,66 @@
+# YOLO and Computer Vision
+ultralytics
+
+# Core ONNX packages
+onnx
+onnxruntime
+optimum==1.13.2 
+
+# Deep Learning Frameworks
+torch
+torchvision
+tensorflow
+
+# Computer Vision Libraries
+opencv-python-headless
+pillow
+scikit-image
+
+# NLP & Speech Processing
+transformers==4.39.3 
+datasets
+soundfile
+librosa
+sentencepiece
+tf-keras
+
+# Hugging Face Tools
+huggingface_hub
+accelerate
+
+# Model Optimization Tools
+neural-compressor
+
+# Utilities & Data Processing
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+tqdm
+
+# Development Tools
+jupyterlab
+ipywidgets
+
+# Web UI (for demos)
+streamlit
+gradio
+
+# API Development
+fastapi
+uvicorn[standard]
+
+# Benchmarking & Profiling
+psutil
+py-spy
+
+# Development dependencies
+pytest
+black
+flake8
+mypy
+pre-commit
+
+# diffusers
+diffusers
