@@ -12,4 +12,5 @@ Example output:
 
 
 
-
+# convert_diffusion_to_onnx_with_stats.py
+This scirpt converts the  huggingface model to onnx and then runs through creating an image based on the prompt given and gives a performance report so that we can see how the model is performing on the system. It also gives the CLIP score to determine how accurate the image is based on the prompt given.
