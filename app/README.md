@@ -30,3 +30,6 @@ Quantized Models:
 
 ![image](https://github.com/user-attachments/assets/6c56d152-8546-4af5-a7be-8191306e3b23)
 
+Comparison from running one script:
+
+![image](https://github.com/user-attachments/assets/fa7f753a-00d1-4fbc-92fa-131106178dc2)
