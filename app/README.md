@@ -17,3 +17,16 @@ This scirpt converts the CompVis/stable-diffusion-v1-4 huggingface model to onnx
 
 Example output: 
 ![image](https://github.com/user-attachments/assets/614c095f-d2f3-4c4c-9b9d-73c69a0a4065)
+
+
+
+### Quantization Stats 
+
+Base models: 
+
+![image](https://github.com/user-attachments/assets/616f8b4e-464e-489c-a89c-6dd4d858d066)
+
+Quantized Models: 
+
+![image](https://github.com/user-attachments/assets/6c56d152-8546-4af5-a7be-8191306e3b23)
+
