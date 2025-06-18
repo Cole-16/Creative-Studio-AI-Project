@@ -265,7 +265,7 @@ else:
     mask = run_sam(image_pil, box_coords)
 
     # Save mask
-    mask_path = "output_mask.png"
+    mask_path = "onnx/output_mask.png"
     cv2.imwrite(mask_path, (mask * 255).astype(np.uint8))
     print(f"✅ Mask saved to {mask_path}")
 
