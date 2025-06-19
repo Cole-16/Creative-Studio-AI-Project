@@ -137,24 +137,24 @@ def get_encoder_hidden_states(prompt: str):
         outputs = text_encoder_test(**inputs)
     return outputs.last_hidden_state.numpy().astype(np.float32)  # Shape: [1, 77, 768]
 # === DUMMY DATA READER ===
-def generate_synthetic_unet_dataset(batch_size=1, latent_shape=(4, 64, 64), steps=30):
+def generate_synthetic_unet_dataset(batch_size=1, latent_shape=(4, 64, 64), steps=1):
     import torch
     for _ in range(steps):
         latents = torch.randn(batch_size, *latent_shape)
         timestep = torch.randint(1, 1000, (batch_size,)).long()
         encoder_hidden_states = torch.randn(batch_size, 77, 768)
-        print(f"[Dataset] Step {i}: latents {latents.shape}, timestep {timestep.shape}, encoder_hidden_states {encoder_hidden_states.shape}")
+        print(f"[Dataset] Step {_}: latents {latents.shape}, timestep {timestep.shape}, encoder_hidden_states {encoder_hidden_states.shape}")
         yield {"sample": latents, "timestep": timestep, "encoder_hidden_states": encoder_hidden_states}
 
-def generate_synthetic_vae_dataset(batch_size=1, shape=(1, 4, 64, 64), steps=30):
+def generate_synthetic_vae_dataset(batch_size=1, shape=(1, 4, 64, 64), steps=2):
     import torch
     for _ in range(steps):
         yield {"latent_sample": torch.randn(*shape)}
 
-def generate_synthetic_text_encoder_dataset(batch_size=1, seq_len=77, steps=30):
+def generate_synthetic_text_encoder_dataset(batch_size=1, seq_len=77, steps=2):
     import torch
     for _ in range(steps):
-        yield {"input_ids": torch.randint(0, 10000, (batch_size, seq_len))}
+        yield {"input_ids": torch.randint(0, 10000, (batch_size, seq_len), dtype=torch.int32)}
 
 from onnxruntime.quantization import quantize_static, CalibrationDataReader, QuantFormat, QuantType, CalibrationMethod
 
@@ -180,6 +180,30 @@ class UNetCalibrationDataReader(CalibrationDataReader):
         for k, v in converted.items():
             print(f"[DataReader] Input {k} shape: {v.shape}")
         return converted
+    
+
+class GenericCalibrationDataReader(CalibrationDataReader):
+    def __init__(self, dataloader):
+        self.enum_data = iter(dataloader)
+        self._cache = None
+
+    def get_next(self):
+        if self._cache is None:
+            try:
+                self._cache = next(self.enum_data)
+            except StopIteration:
+                return None
+        result = self._cache
+        self._cache = None
+
+        # Cast each input to appropriate dtype
+        input_dict = {}
+        for k, v in result.items():
+            if v.dtype == torch.int64:  # force int32 if needed
+                v = v.to(dtype=torch.int32)
+            input_dict[k] = v.numpy()
+        print(f"[DataReader] Input {list(input_dict.keys())} shape: {[v.shape for v in input_dict.values()]}, dtype: {[v.dtype for v in input_dict.values()]}")
+        return input_dict
 
    
 
@@ -189,8 +213,10 @@ def quantize_model_statically(model_path, output_path, dataloader_fn):
         return
 
     print(f"Quantizing model at {model_path.name} using static QDQ format...")
-
-    data_reader = UNetCalibrationDataReader(dataloader_fn())
+    if 'text_encoder' in model_path.name:
+        data_reader=GenericCalibrationDataReader(dataloader_fn())
+    else:
+        data_reader = UNetCalibrationDataReader(dataloader_fn())
 
     quantize_static(
         model_input=str(model_path),
@@ -205,6 +231,17 @@ def quantize_model_statically(model_path, output_path, dataloader_fn):
     )
 
     print(f"✅ Quantized model saved to: {output_path}")
+
+def quantize_model_dynamic():
+
+    quantize_dynamic(
+    model_input=str(unet_file),
+    model_output=str(onx_quant_output_dir / "unet" / "unet_quantized.onnx"),
+    weight_type=QuantType.QInt8,
+    use_external_data_format=True  # if original model used it
+    )
+
+
 gc.collect()
 # model = load_model(onnx_output_dir / "unet" / "unet.onnx", load_external_data=True)
 # convert_model_from_external_data(model)
@@ -214,11 +251,12 @@ gc.collect()
 if not (onx_quant_output_dir / "unet" / "unet_quantized.onnx").exists():
     print("🔧 Quantizing UNet...")
     (onx_quant_output_dir / "unet").mkdir(parents=True, exist_ok=True)
-    quantize_model_statically(
-        onnx_output_dir / "unet" /"unet.onnx",
-        onx_quant_output_dir / "unet" / "unet_quantized.onnx",
-        generate_synthetic_unet_dataset
-    )
+    # quantize_model_statically(
+    #     onnx_output_dir / "unet" /"unet.onnx",
+    #     onx_quant_output_dir / "unet" / "unet_quantized.onnx",
+    #     generate_synthetic_unet_dataset
+    # )
+    quantize_model_dynamic()
     gc.collect()
 
 if not (onx_quant_output_dir / "vae_decoder" / "vae_quantized.onnx").exists():
@@ -256,9 +294,9 @@ def load_sessions(folder):
     opts.inter_op_num_threads = cpu_cores
     providers = ["CPUExecutionProvider"]
     return [
-        ort.InferenceSession(str(folder / "text_encoder.onnx"), opts, providers),
-        ort.InferenceSession(str(folder / "unet.onnx"), opts, providers),
-        ort.InferenceSession(str(folder / "vae.onnx"), opts, providers),
+        ort.InferenceSession(str(folder / "text_encoder" /"text_encoder.onnx"), opts, providers),
+        ort.InferenceSession(str(folder / "unet" / "unet.onnx"), opts, providers),
+        ort.InferenceSession(str(folder / "vae" / "vae.onnx"), opts, providers),
     ]
 
 # Load ONNX Runtime sessions
@@ -271,8 +309,8 @@ def load_quantized_sessions(folder):
     providers = ["CPUExecutionProvider"]
     return [
         ort.InferenceSession(str(folder / "text_encoder" / "text_encoder_quantized.onnx"), opts, providers),
-        ort.InferenceSession(str(onnx_output_dir / "unet.onnx"), opts, providers),
-        ort.InferenceSession(str(onnx_output_dir / "vae.onnx"), opts, providers),
+        ort.InferenceSession(str(onnx_output_dir / "unet" / "unet.onnx"), opts, providers),
+        ort.InferenceSession(str(folder / "vae_decoder" / "vae_quantized.onnx"), opts, providers),
     ]
 
 
@@ -293,8 +331,8 @@ def run_pipeline(sessions, label):
     inputs = tokenizer(prompt, return_tensors="np", padding="max_length", max_length=77, truncation=True)
     uncond_inputs = tokenizer([""], return_tensors="np", padding="max_length", max_length=77, truncation=True)
 
-    text_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: inputs["input_ids"].astype(np.int64)})[0].astype(np.float32)
-    uncond_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: uncond_inputs["input_ids"].astype(np.int64)})[0].astype(np.float32)
+    text_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: inputs["input_ids"].astype(np.int32)})[0].astype(np.float32)
+    uncond_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: uncond_inputs["input_ids"].astype(np.int32)})[0].astype(np.float32)
     text_embeddings = np.concatenate([uncond_emb, text_emb], axis=0)
 
     latents = np.random.randn(*latent_shape).astype(np.float32) * scheduler.init_noise_sigma
@@ -305,7 +343,8 @@ def run_pipeline(sessions, label):
 
     # Denoising loop (correct loop over scheduler.timesteps)
     for i, t in enumerate(scheduler.timesteps):
-        t_array = np.array(t * latents.shape[0], dtype=np.float32)
+        # t_array = np.array(t * latents.shape[0], dtype=np.float32)
+        t_array = np.full((latents.shape[0],), t, dtype=np.float32)
 
         unet_inputs = {
             unet_sess.get_inputs()[0].name: latents,
@@ -336,6 +375,7 @@ def run_pipeline(sessions, label):
     memory_used = end_mem - start_mem
 
     latents = latents[:1]
+    print("Memory (MB):", psutil.Process().memory_info().rss / 1024 ** 2)
     decoded = vae_decoder_sess.run(None, {vae_decoder_sess.get_inputs()[0].name: latents})[0]
     decoded = np.clip((decoded + 1) / 2, 0, 1)
     image = (decoded[0].transpose(1, 2, 0) * 255).astype(np.uint8)
@@ -378,14 +418,14 @@ print(f"Image Outputs:                   \n  Base: {base_path}\n  Quant: {quant_
 
 print("\n📦 Model Size Comparison (in MB):")
 base_size = (
-    get_model_size(onnx_output_dir / "text_encoder.onnx")
-    + get_model_size(onnx_output_dir / "unet.onnx")
-    + get_model_size(onnx_output_dir / "vae.onnx")
+    get_model_size(onnx_output_dir / "text_encoder" /"text_encoder.onnx")
+    + get_model_size(onnx_output_dir / "unet" / "unet.onnx")
+    + get_model_size(onnx_output_dir / "vae" / "vae.onnx")
 )
 quant_size = (
-    get_model_size(onx_quant_output_dir / "text_encoder")
-    + get_model_size(onx_quant_output_dir / "unet")
-    + get_model_size(onx_quant_output_dir / "vae_decoder")
+    get_model_size(onx_quant_output_dir / "text_encoder" / "text_encoder_quantized.onnx")
+    + get_model_size(onx_quant_output_dir / "unet" / "unet_quantized.onnx")
+    + get_model_size(onx_quant_output_dir / "vae_decoder" / "vae_quantized.onnx")
 )
 
 print(f"Base ONNX Models Total Size:      {base_size:.2f} MB")
