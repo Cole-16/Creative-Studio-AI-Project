@@ -6,11 +6,12 @@ from tqdm import tqdm
 from pathlib import Path
 from PIL import Image, ImageFilter
 import onnxruntime as ort
-from transformers import AutoTokenizer, AutoModelForCausalLM, CLIPTokenizer,SamModel,SamProcessor
+from transformers import AutoTokenizer, AutoModelForCausalLM, CLIPTokenizer,SamModel,SamProcessor,CLIPSegProcessor, CLIPSegForImageSegmentation
 from transformers.onnx import FeaturesManager, export as export_onnx
 from diffusers import StableDiffusionPipeline, AutoencoderKL, DPMSolverMultistepScheduler
 from optimum.exporters.onnx import export
 from optimum.exporters.onnx.model_configs import CLIPTextOnnxConfig, UNetOnnxConfig, VaeDecoderOnnxConfig
+# from optimum.exporters.onnx.model_configs.diffusers import UNet2DConditionOnnxConfig
 import cv2
 from ultralytics import YOLO
 import matplotlib.pyplot as plt
@@ -19,15 +20,16 @@ from matplotlib.widgets import RectangleSelector
 # --- Configuration ---
 gpt2_model_id = "openai-community/gpt2-medium"
 sd_model_id = "CompVis/stable-diffusion-v1-4"
-onnx_dir = Path("onnx")
+parent_path=Path.cwd().parent
+onnx_dir = parent_path / "models" / "onnx"
 onnx_dir.mkdir(parents=True, exist_ok=True)
 gpt2_onnx_path = onnx_dir / "gpt2" / "model.onnx"
 text_encoder_path = onnx_dir / "text_encoder" / "text_encoder.onnx"
 unet_path = onnx_dir / "unet" / "unet.onnx"
 vae_path = onnx_dir / "vae_decoder" / "vae.onnx"
 
-onnx_dir.mkdir(parents=True, exist_ok=True)
-opset = 14
+# onnx_dir.mkdir(parents=True, exist_ok=True)
+# opset = 14
 
 # # --- Step 1: Prompt for user keyword ---
 # keyword = input("Enter a word or concept to generate an image of: ").strip()
@@ -170,8 +172,8 @@ opset = 14
 # tokenizer_clip = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 # input_ids = tokenizer_clip([selected_prompt], return_tensors="np", padding="max_length", max_length=77)["input_ids"]
 # uncond_ids = tokenizer_clip([""], return_tensors="np", padding="max_length", max_length=77)["input_ids"]
-# text_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: input_ids.astype(np.int64)})[0].astype(np.float32)
-# uncond_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: uncond_ids.astype(np.int64)})[0].astype(np.float32)
+# text_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: input_ids.astype(np.int32)})[0].astype(np.float32)
+# uncond_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: uncond_ids.astype(np.int32)})[0].astype(np.float32)
 # text_embeddings = np.concatenate([uncond_emb, text_emb], axis=0)
 
 # latents = np.random.randn(1, 4, 64, 64).astype(np.float32) * scheduler.init_noise_sigma
@@ -197,7 +199,7 @@ opset = 14
 
 # pil_image = Image.fromarray(image).resize((768, 768), Image.BICUBIC)
 # pil_image = pil_image.filter(ImageFilter.UnsharpMask(radius=2, percent=200, threshold=3))
-# output_path = onnx_dir / "output.png"
+# output_path = onnx_dir / "test_output.png"
 # pil_image.save(output_path)
 
 
@@ -206,76 +208,364 @@ opset = 14
 # del text_encoder_sess, unet_sess, vae_decoder_sess, latents, decoded
 # gc.collect()
 
-## load yolov8 for image detection and masking
+# load yolov8 for image detection and masking
+
+### manual masking 
 # --- Step 1: Select box manually ---
-coords = []
+# coords = []
 
-def on_select(eclick, erelease):
-    global coords
-    x1, y1 = int(eclick.xdata), int(eclick.ydata)
-    x2, y2 = int(erelease.xdata), int(erelease.ydata)
-    coords = [x1, y1, x2, y2]
-    plt.close()
+# def on_select(eclick, erelease):
+#     global coords
+#     x1, y1 = int(eclick.xdata), int(eclick.ydata)
+#     x2, y2 = int(erelease.xdata), int(erelease.ydata)
+#     coords = [x1, y1, x2, y2]
+#     plt.close()
 
-def select_box(image_path):
-    img = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
-    fig, ax = plt.subplots()
-    ax.imshow(img)
-    toggle_selector = RectangleSelector(ax, on_select, useblit=True,
-                                    button=[1],  # Left click
-                                    minspanx=5, minspany=5,
-                                    spancoords='pixels', interactive=True)
-    plt.title("Draw a box around the object and close the window.")
-    plt.show()
-    return coords, img
-# --- Step 1: Load Models ---
-sam_model = SamModel.from_pretrained("facebook/sam-vit-base")
-sam_processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
+# def select_box(image_path):
+#     img = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
+#     fig, ax = plt.subplots()
+#     ax.imshow(img)
+#     toggle_selector = RectangleSelector(ax, on_select, useblit=True,
+#                                     button=[1],  # Left click
+#                                     minspanx=5, minspany=5,
+#                                     spancoords='pixels', interactive=True)
+#     plt.title("Draw a box around the object and close the window.")
+#     plt.show()
+#     return coords, img
+# # --- Step 1: Load Models ---
+# sam_model = SamModel.from_pretrained("facebook/sam-vit-base")
+# sam_processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
 
-# --- Step 2: Load Input Image ---
-image_path = "onnx/CaptureTree.png"
-image_pil = Image.open(image_path).convert("RGB")
-image_np = np.array(image_pil)
-
-
-################################## POSSIBLY CHECK OUT clipseg-rd64-refined FOR THE MASKING AS IT DOES IT BASED ON A PROMPT ###################################################################
+# # --- Step 2: Load Input Image ---
+# image_path = onnx_dir / "test_output.png"
+# image_pil = Image.open(image_path).convert("RGB")
+# image_np = np.array(image_pil)
 
 
-# --- Step 3: Run SAM prediction ---
-def run_sam(image_pil, box):
-    inputs = sam_processor(image_pil, input_boxes=[[box]], return_tensors="pt").to("cpu")
-    with torch.no_grad():
-        outputs = sam_model(**inputs)
-    masks = sam_processor.image_processor.post_process_masks(
-        outputs.pred_masks.cpu(),
-        inputs["original_sizes"].cpu(),
-        inputs["reshaped_input_sizes"].cpu()
+# ################################## POSSIBLY CHECK OUT clipseg-rd64-refined FOR THE MASKING AS IT DOES IT BASED ON A PROMPT ###################################################################
+
+
+# # --- Step 3: Run SAM prediction ---
+# def run_sam(image_pil, box):
+#     inputs = sam_processor(image_pil, input_boxes=[[box]], return_tensors="pt").to("cpu")
+#     with torch.no_grad():
+#         outputs = sam_model(**inputs)
+#     masks = sam_processor.image_processor.post_process_masks(
+#         outputs.pred_masks.cpu(),
+#         inputs["original_sizes"].cpu(),
+#         inputs["reshaped_input_sizes"].cpu()
+#     )
+#     return masks[0][0][0].numpy()  # First mask, height x width
+
+# # --- Step 4: Main execution ---
+# image_path = onnx_dir / "test_output.png"  # Replace with your image
+# box_coords, image_rgb = select_box(str(image_path))
+
+# if not box_coords:
+#     print("❌ No box selected.")
+# else:
+#     print(f"✅ Box selected: {box_coords}")
+#     image_pil = Image.fromarray(image_rgb)
+#     mask = run_sam(image_pil, box_coords)
+
+#     # Save mask
+#     mask_path = onnx_dir / "test_mask_output.png"
+#     cv2.imwrite(mask_path, (mask * 255).astype(np.uint8))
+#     print(f"✅ Mask saved to {mask_path}")
+
+#     # Optional: Show mask overlaid
+#     overlay = image_rgb.copy()
+#     overlay[mask > 0.5] = [255, 0, 0]  # Red mask overlay
+#     plt.imshow(overlay)
+#     plt.title("Mask Overlay")
+#     plt.axis("off")
+#     plt.show()
+ ### clipseg masking 
+
+# --- Setup ---
+clipseg_model_id = "CIDAS/clipseg-rd64-refined"
+clipseg_model = CLIPSegForImageSegmentation.from_pretrained(clipseg_model_id)
+clipseg_processor = CLIPSegProcessor.from_pretrained(clipseg_model_id)
+
+image_filenames = ["test_output.png", "quality_image.png"]
+onnx_dir = onnx_dir  # update this if needed
+
+# --- Get masking and recoloring prompts ---
+clipseg_prompt = input("🖋️ What do you want to mask in the image? (e.g., 'sky'): ").strip()
+color_prompt = input("🎨 Enter a color change prompt (e.g., 'change to purple'): ").strip()
+
+# --- Color mapping ---
+color_map = {
+    "red": [255, 0, 0],
+    "green": [0, 255, 0],
+    "blue": [0, 0, 255],
+    "purple": [128, 0, 128],
+    "yellow": [255, 255, 0],
+    "orange": [255, 165, 0],
+    "pink": [255, 192, 203],
+    "brown": [139, 69, 19],
+    "white": [255, 255, 255],
+    "black": [0, 0, 0],
+}
+
+def extract_color_from_prompt(prompt):
+    prompt = prompt.lower()
+    for name in color_map:
+        if name in prompt:
+            return np.array(color_map[name], dtype=np.uint8)
+    return None
+
+target_rgb = extract_color_from_prompt(color_prompt)
+if target_rgb is None:
+    print("❌ No recognized color in the prompt.")
+    exit()
+
+def apply_clipseg_and_blend(image_pil, text_prompt, color_rgb, alpha=0.6):
+    # Prepare image and model input
+    inputs = clipseg_processor(
+        text=[text_prompt],
+        images=[image_pil],
+        return_tensors="pt",
+        padding=True
     )
-    return masks[0][0][0].numpy()  # First mask, height x width
 
-# --- Step 4: Main execution ---
-image_path = "onnx/CaptureTree.png"  # Replace with your image
-box_coords, image_rgb = select_box(image_path)
+    with torch.no_grad():
+        logits = clipseg_model(**inputs).logits  # shape: [1, 352, 352]
 
-if not box_coords:
-    print("❌ No box selected.")
-else:
-    print(f"✅ Box selected: {box_coords}")
-    image_pil = Image.fromarray(image_rgb)
-    mask = run_sam(image_pil, box_coords)
+    # Convert logits to soft mask
+    mask = torch.sigmoid(logits[0]).cpu().numpy()  # (352, 352)
+    mask_img = Image.fromarray((mask * 255).astype(np.uint8))
+    mask_resized = mask_img.resize(image_pil.size, resample=Image.BICUBIC)
+    mask_np = np.array(mask_resized).astype(np.float32) / 255.0  # [0,1]
 
-    # Save mask
-    mask_path = "onnx/output_mask.png"
-    cv2.imwrite(mask_path, (mask * 255).astype(np.uint8))
-    print(f"✅ Mask saved to {mask_path}")
+    # Blend with color
+    image_rgb = np.array(image_pil).astype(np.float32)
+    color_rgb_f = color_rgb.astype(np.float32).reshape(1, 1, 3)
+    blended = (
+        (1 - alpha * mask_np[..., None]) * image_rgb +
+        (alpha * mask_np[..., None]) * color_rgb_f
+    )
+    blended = np.clip(blended, 0, 255).astype(np.uint8)
+    return np.array(image_pil), blended  # original, edited
 
-    # Optional: Show mask overlaid
-    overlay = image_rgb.copy()
-    overlay[mask > 0.5] = [255, 0, 0]  # Red mask overlay
-    plt.imshow(overlay)
-    plt.title("Mask Overlay")
-    plt.axis("off")
-    plt.show()
+# --- Run on both images ---
+image_results = []
+for filename in image_filenames:
+    image_path = onnx_dir / filename
+    image_pil = Image.open(image_path).convert("RGB")
+    original, edited = apply_clipseg_and_blend(image_pil, clipseg_prompt, target_rgb)
+    image_results.append((original, edited))
 
+    # Save edited image
+    edited_filename = filename.replace(".png", "_edited.png")
+    Image.fromarray(edited).save(onnx_dir / edited_filename)
+    print(f"✅ Saved: {edited_filename}")
+
+# --- Extended plotting with inferno mask ---
+fig, axs = plt.subplots(2, 3, figsize=(18, 10))
+
+# Grid:
+# Row 0 = test_output.png
+# Row 1 = quality_output.png
+
+# Add masks to image_results so we can plot them
+image_results_with_masks = []
+for filename in image_filenames:
+    image_path = onnx_dir / filename
+    image_pil = Image.open(image_path).convert("RGB")
+    inputs = clipseg_processor(text=[clipseg_prompt], images=[image_pil], return_tensors="pt", padding=True)
+
+    with torch.no_grad():
+        logits = clipseg_model(**inputs).logits  # [1, 352, 352]
+
+    # Convert to sigmoid mask
+    mask = torch.sigmoid(logits[0]).cpu().numpy()
+    mask_img = Image.fromarray((mask * 255).astype(np.uint8))
+    mask_resized = mask_img.resize(image_pil.size, resample=Image.BICUBIC)
+    mask_np = np.array(mask_resized).astype(np.float32) / 255.0
+
+    # Inferno mask for display only
+    image_results_with_masks.append((np.array(image_pil), mask_np, None))  # We'll set edited next
+
+# Fill in the edited images
+for i in range(2):
+    image_results_with_masks[i] = (
+        image_results[i][0],  # original
+        image_results_with_masks[i][1],  # mask
+        image_results[i][1],  # edited
+    )
+
+# Unpack and display all
+titles = [
+    "Original (test)", "Mask (test)", "Edited (test)",
+    "Original (quality)", "Mask (quality)", "Edited (quality)"
+]
+
+for idx, ax in enumerate(axs.flatten()):
+    row = idx // 3
+    col = idx % 3
+    original, mask, edited = image_results_with_masks[row]
+
+    if col == 0:
+        ax.imshow(original)
+    elif col == 1:
+        ax.imshow(original)  # show base image
+        ax.imshow(mask, alpha=0.5, cmap="inferno")  # inferno overlay
+    elif col == 2:
+        ax.imshow(edited)
+
+    ax.set_title(titles[idx])
+    ax.axis("off")
+
+plt.suptitle(f"Mask prompt: '{clipseg_prompt}' | Color edit: '{color_prompt}'", fontsize=15)
+plt.tight_layout()
+plt.subplots_adjust(top=0.92)
+plt.show()
+
+
+
+
+
+
+
+#  # --- Step 1: Load model and processor ---
+# clipseg_model_id = "CIDAS/clipseg-rd64-refined"
+# clipseg_model = CLIPSegForImageSegmentation.from_pretrained(clipseg_model_id)
+# clipseg_processor = CLIPSegProcessor.from_pretrained(clipseg_model_id)
+# print("✅ Model architecture:", type(clipseg_model))
+# print("✅ Output logits shape (after forward pass):", clipseg_model(**clipseg_processor(["tree"], images=[Image.new("RGB", (512, 512))], return_tensors="pt")).logits.shape)
+# # --- Step 2: Load input image ---
+# image_path = onnx_dir / "test_output.png"
+# image_pil = Image.open(image_path).convert("RGB")
+
+# # --- Step 3: Get text prompt from user ---
+# clipseg_prompt = input("🖋️ What do you want to mask in the image? (e.g., 'palm tree'): ").strip()
+
+# # --- Step 4: Prepare inputs ---
+# inputs = clipseg_processor(
+#     text=[clipseg_prompt], 
+#     images=[image_pil], 
+#     return_tensors="pt", 
+#     padding=True
+# )
+# print("Input pixel_values shape:", inputs["pixel_values"].shape)
+# print("Input input_ids shape:", inputs["input_ids"].shape)
+# # --- Step 5: Run model ---
+# with torch.no_grad():
+#     outputs = clipseg_model(**inputs)
+
+# print(f"📐 Model output shape: {outputs.logits.shape}")
+# print(f"logits type: {type(outputs.logits)}")
+# print(f"logits shape: {outputs.logits.shape}")
+
+# # logits should be 4D: [batch, channels, height, width]
+# logits = outputs.logits  # still tensor, no indexing yet
+
+# print(f"logits min: {logits.min().item()}, max: {logits.max().item()}")
+
+# # Let's grab the first sample, first channel:
+# logits_sample = logits[0, 0]  # shape should be (H, W)
+# print(f"logits_sample shape: {logits_sample.shape}")
+
+# # Now you can safely slice a patch:
+# # print(f"logits_sample slice:\n{logits_sample[170:180, 170:180]}")
+
+# logits_np = logits[0].cpu().numpy()
+# plt.imshow(np.clip(logits_np, -5, 5), cmap="inferno")
+# plt.colorbar()
+# plt.title("Raw logits clipped [-5,5]")
+# plt.show()
+# # Get mask: shape [batch, 1, 352, 352]
+# logits = outputs.logits[0]  # shape: (352, 352)
+
+# logits = logits.sigmoid().cpu().numpy()
+
+# mask_img = Image.fromarray((logits * 255).astype(np.uint8))
+# mask_resized = mask_img.resize(image_pil.size, resample=Image.BICUBIC)
+# mask_resized_np = np.array(mask_resized) / 255.0
+
+# # --- Step 7: Visualize or save ---
+# plt.imshow(np.array(image_pil))
+# plt.imshow(mask_resized_np, alpha=0.5, cmap="inferno")
+# plt.title(f"Mask for: '{clipseg_prompt}'")
+# plt.axis("off")
+# plt.show()
+
+# # Save if needed
+# cv2.imwrite(str(onnx_dir / "clipseg_mask.png"), (mask_resized_np * 255).astype(np.uint8))
+
+# image_rgb = np.array(image_pil)
+#     # --- Step 5: Prompt for Color Edit ---
+# color_map = {
+#     "red": [255, 0, 0],
+#     "green": [0, 255, 0],
+#     "blue": [0, 0, 255],
+#     "purple": [128, 0, 128],
+#     "yellow": [255, 255, 0],
+#     "orange": [255, 165, 0],
+#     "pink": [255, 192, 203],
+#     "brown": [139, 69, 19],
+#     "white": [255, 255, 255],
+#     "black": [0, 0, 0],
+# }
+
+# def extract_color_from_prompt(prompt):
+#     prompt = prompt.lower()
+#     for name in color_map:
+#         if name in prompt:
+#             return np.array(color_map[name], dtype=np.uint8)
+#     return None
+
+# user_prompt = input("\n🎨 Enter a color change prompt (e.g., 'change to purple'): ").strip()
+# target_rgb = extract_color_from_prompt(user_prompt)
+
+# if target_rgb is None:
+#     print("❌ No recognized color in the prompt.")
+# else:
+#     print(f"🎯 Applying blended color: {target_rgb} to masked area.")
+
+#     # Normalize the soft mask to float [0, 1]
+#     mask_float = np.clip(mask_resized_np.astype(np.float32), 0.0, 1.0)
+
+#     # Check mask and image shape match
+#     assert mask_float.shape == image_rgb.shape[:2], "Mask and image dimensions do not match!"
+
+#     alpha = 0.6  # strength of the color blending
+
+#     # Reshape target color for broadcasting
+#     target_rgb_array = target_rgb.astype(np.float32).reshape(1, 1, 3)
+#     image_float = image_rgb.astype(np.float32)
+
+#     # Perform alpha blending using the soft mask
+#     blended = ((1 - alpha * mask_float[..., None]) * image_float +
+#                (alpha * mask_float[..., None]) * target_rgb_array)
+
+#     blended = np.clip(blended, 0, 255).astype(np.uint8)
+
+#     # --- Step 7: Save and compare ---
+#     edited_path = onnx_dir / "edited_output.png"
+#     Image.fromarray(blended).save(edited_path)
+#     print(f"✅ Refined edited image saved at: {edited_path}")
+
+#     # Show original and edited side by side
+#     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+#     axs[0].imshow(image_rgb)
+#     axs[0].set_title("Original (Beach with palm tree)")
+#     axs[0].axis("off")
+#     axs[0].text(
+#     0.5, -0.1, "User Beginning Prompt: Beach with a palm tree.", transform=axs[0].transAxes,
+#     ha='center', va='top', fontsize=11, color="gray"
+#     )
+
+#     axs[1].imshow(blended)
+#     axs[1].set_title(f"Edited ({user_prompt})")
+#     axs[1].axis("off")
+#     axs[1].text(
+#     0.5, -0.1, "Edited picture with prompt: Change sky to green.", transform=axs[1].transAxes,
+#     ha='center', va='top', fontsize=11, color="gray"
+#     )
+
+#     plt.tight_layout()
+#     plt.show()
 
 
