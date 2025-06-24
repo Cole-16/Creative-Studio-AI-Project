@@ -85,6 +85,19 @@ For the image generation model I used quantization and then also downgraded some
  Once again using these techniques I was able to reduce resources needed and also reduce the size of the model files but the tradeoff was that the quality of the image that was generated was greatly affected. With quantization the image looked like smeared paint and     then without quantization and just the 64x64 sample size would create a fairly decent image but again at a drastically reduced quality. In the stable_diffusion_64px_quantized.py file I have kept the quantization for benchmarking to compare the regular to quantized    models but in the full demo I made the trade off of no quantization but kept the 64x64 sample size as the image is viewable and does not take 20 minutes plus to create. 
 
  Example output from stable_diffusion_to_onnx_64px_quantized.py:
+ 
+  ![image](https://github.com/user-attachments/assets/762618c1-604b-4c54-9b56-2243d42d3c64)
+
+  ![image](https://github.com/user-attachments/assets/e8207ba5-a2ec-49d7-90e6-b10b929b1f3b)
+
+  ![image](https://github.com/user-attachments/assets/7a0219a9-11b2-4959-bbf3-bed62d73ca56)
+
+  These will be saved after running the code to the /benchmark/diffusion location.
+
+
+  
+
+ 
 
 ### Phase 4-End (Image detection and Final Demo)
 - For my image detection/masking (as I needed one to make a mask for my edit process) I am using the CIDAS/clipseg-rd64-refined model.
@@ -133,6 +146,29 @@ Example output:
 ![image](https://github.com/user-attachments/assets/dc48c495-2554-49f7-a1de-810498503b82)
 
 
+### gpt2_pruned_vs_base.py
+This script converts the openai-community/gpt2-medium huggingface model to onnx and then runs through kv caching and pruning optimization techniques and displays the differences between the base and pruned benchmarking. 
 
-### convert_diffusion_to_onnx_with_stats.py
-This scirpt converts the  huggingface model to onnx and then runs through creating an image based on the prompt given and gives a performance report so that we can see how the model is performing on the system. It also gives the CLIP score to determine how accurate the image is based on the prompt given.
+Example output:
+
+
+### stable_diffusion_to_onnx_64px_quantized.py
+This script converts the CompVis/stable-diffusion-v1-4 huggingface model to onnx and then runs through basic quantization techniques and then displays the differences between the base and quantized benchmarking.
+
+Example output: 
+
+![image](https://github.com/user-attachments/assets/2b3a691a-e270-4ae9-93bf-26e170508acd)
+
+![image](https://github.com/user-attachments/assets/5d60bee3-77e6-461c-b2f1-049d3992c1d6)
+
+![image](https://github.com/user-attachments/assets/6192a934-1977-4057-ae12-93a8275be00f)
+
+These tables and graphs are saved in the /benchmark/diffusion location: 
+
+![image](https://github.com/user-attachments/assets/2c3fa3c2-c581-4655-af41-407d3dd00b98)
+
+The rest can be found in the console UI as well. 
+
+
+
+
