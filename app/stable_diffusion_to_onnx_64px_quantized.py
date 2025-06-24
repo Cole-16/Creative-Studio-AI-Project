@@ -37,7 +37,7 @@ from onnxruntime.quantization import quant_pre_process, write_calibration_table
 
 # Set model and output directory
 model_id = "CompVis/stable-diffusion-v1-4"
-onnx_output_dir = Path.cwd() / "stable_diffusion_onnx_optimum"
+onnx_output_dir = Path.cwd().parent / "model" / "stable_diffusion_onnx_optimum"
 onx_quant_output_dir = onnx_output_dir / "quantized"
 onx_quant_output_dir.mkdir(parents=True, exist_ok=True)
 
