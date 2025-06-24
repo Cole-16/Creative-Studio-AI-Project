@@ -431,3 +431,42 @@ quant_size = (
 print(f"Base ONNX Models Total Size:      {base_size:.2f} MB")
 print(f"Quantized ONNX Models Size:       {quant_size:.2f} MB")
 print(f"Compression Ratio:                {base_size / quant_size:.2f}x smaller")
+
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+benchmark_path=Path.cwd().parent / "benchmark"
+# Save benchmark data
+benchmark_data = {
+    "Model Type": ["Base", "Quantized"],
+    "Denoising Time (s)": [base_time, quant_time],
+    "Peak Memory (MB)": [base_mem, quant_mem],
+    "Model Size (MB)": [base_size, quant_size],
+}
+
+df = pd.DataFrame(benchmark_data)
+
+# Save table
+csv_path = benchmark_path / "diffusion" / "benchmark_results.csv"
+md_path = benchmark_path / "diffusion" /"benchmark_results.md"
+df.to_csv(csv_path, index=False)
+df.to_markdown(md_path, index=False)
+
+# Create and save plots
+fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+fig.suptitle("ONNX Stable Diffusion Benchmark Results", fontsize=16)
+
+metrics = ["Denoising Time (s)", "Peak Memory (MB)", "Model Size (MB)"]
+colors = ["#3498db", "#2ecc71"]
+
+for i, metric in enumerate(metrics):
+    axs[i].bar(df["Model Type"], df[metric], color=colors)
+    axs[i].set_title(metric)
+    axs[i].set_ylabel(metric)
+
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plot_path = benchmark_path / "diffusion" / "benchmark_charts.png"
+plt.savefig(plot_path)
+
+print(f"\n📈 Benchmark results saved to:\nCSV: {csv_path}\nMarkdown: {md_path}\nChart: {plot_path}")
