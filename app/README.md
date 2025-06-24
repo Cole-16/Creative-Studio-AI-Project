@@ -52,9 +52,11 @@ As I said before both of these files have been updated throughout the process so
 For the text generation model I used pruning and kv caching to optimize the text generation in this file and then compared the outputs of both to compare the results.
 
 - Pruning:
+
   ![image](https://github.com/user-attachments/assets/91e0e06b-1d43-4d11-ba07-dcd93498846b)
 
 -KV caching:
+
   ![image](https://github.com/user-attachments/assets/58790934-523b-43f7-91da-a86e8ffc04d5)
 
 Both of these optimizations did help in terms of speed and resources but it badly affected the quality of the generated text from what I saw. Using no optimization techniques my text generation stayed on track and produced rather good creative outputs but with the optimization it struggled to stay on topic and usually drifted into typing nonsense. I even tried some repetition handling and warnings where it would basically tell the model it was wrong for having repition in its outputs and that still did not help. That is why these files are seperate from the full demo as the tradeoff for the functionality was not worth it from what I saw in my examples. So, I decided to stick with the base model with no optimization for the full demo but did keep them  in these other filesfor benchmarking purposes. 
@@ -66,6 +68,7 @@ Example Benchmark output from gpt2_pruned_vs_base.py:
 For the image generation model I used quantization and then also downgraded some of the UNET model's values to help with the optimization here.
 
 - Quantization:
+
   ![image](https://github.com/user-attachments/assets/ad6c2fd6-88c9-4d8a-b737-52e98d3f73a3)
 
   Due to the stable diffusion model having separate pipelines we have to quantize each one separatley (text_encoder, unet, vae). So this is an example of the code calling each one to quantize them. 
@@ -83,7 +86,41 @@ For the image generation model I used quantization and then also downgraded some
 
  Example output from stable_diffusion_to_onnx_64px_quantized.py:
 
+### Phase 4-End (Image detection and Final Demo)
+- For my image detection/masking (as I needed one to make a mask for my edit process) I am using the CIDAS/clipseg-rd64-refined model.
 
+#### Files that contain these phases
+1. Full_demo.py
+
+#### Image detection/Masking 
+- In my full_demo.py file After I generate the image I am using the clipseg model to take a user prompt to create a mask based on what they give it:
+
+![image](https://github.com/user-attachments/assets/72c4e48a-1799-4edc-8576-47a0dca73605)
+
+So if the user gives it the prompt of "sky" it will take the generated image and then create an inferno mask that we then send to be edited:
+
+![image](https://github.com/user-attachments/assets/01b29ae6-47ab-49cb-b080-ce4e179d8ae5)
+
+So you can see it takes the original image, creates the inferno mask, and then uses that to determine what area needs to be edited all based on the prompt "sky" to the clipseg model. 
+
+
+#### Full demo 
+- The full demo outline is as follows:
+1. The models are exported to onnx
+2. The user is prompted to input a key word or phrase that will turned into a creative prompt.
+3. GPT2 generates 3 batches prompts that are then given to the user to select which one they like the best.
+4. On selection it sends the prompt to the image generator and creates the image.
+5. On completion of the image the user is then asked what they want to edit in the photo (ex. Sky,water,tree)
+6. After that prompt it will ask what the user wants to do to the selection (ex. change color to x)
+7. The clipseg model will take this prompt and create an inferno mask of the item selected and pass that to our edit function.
+8. The edit function will take the user prompted color and blend that color change into the mask and then re-show the photo.
+9. At the end an output is given to show the difference between the original and edited photo. As well as a "quality_photo" that I generated at better resolution just to show what the edit looks like on a very good quality photo.
+
+Full demo output picture: 
+
+![image](https://github.com/user-attachments/assets/0cc33dc2-5984-49e8-aca8-3736286c5b08)
+
+The user prompts are shown at the top as well.
 
 
 
