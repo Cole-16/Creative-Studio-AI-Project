@@ -1,3 +1,4 @@
+# this should handle the onnx export, quantization, and benchmarking for the diffusion pipeline. (STILL NEED TO SAVE TABLES TO BENCHMARKING LOCATION AND ALSO UPDATE MODEL LOCATION SAVE)
 import torch
 import os
 import time
@@ -37,7 +38,7 @@ from onnxruntime.quantization import quant_pre_process, write_calibration_table
 
 # Set model and output directory
 model_id = "CompVis/stable-diffusion-v1-4"
-onnx_output_dir = Path.cwd().parent / "model" / "stable_diffusion_onnx_optimum"
+onnx_output_dir = Path.cwd().parent / "models" / "stable_diffusion_onnx_optimum"
 onx_quant_output_dir = onnx_output_dir / "quantized"
 onx_quant_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -154,7 +155,7 @@ def generate_synthetic_vae_dataset(batch_size=1, shape=(1, 4, 64, 64), steps=2):
 def generate_synthetic_text_encoder_dataset(batch_size=1, seq_len=77, steps=2):
     import torch
     for _ in range(steps):
-        yield {"input_ids": torch.randint(0, 10000, (batch_size, seq_len), dtype=torch.int32)}
+        yield {"input_ids": torch.randint(0, 10000, (batch_size, seq_len), dtype=torch.int64)}
 
 from onnxruntime.quantization import quantize_static, CalibrationDataReader, QuantFormat, QuantType, CalibrationMethod
 
@@ -199,8 +200,8 @@ class GenericCalibrationDataReader(CalibrationDataReader):
         # Cast each input to appropriate dtype
         input_dict = {}
         for k, v in result.items():
-            if v.dtype == torch.int64:  # force int32 if needed
-                v = v.to(dtype=torch.int32)
+            # if v.dtype == torch.int64:  # force int32 if needed
+            #     v = v.to(dtype=torch.int32)
             input_dict[k] = v.numpy()
         print(f"[DataReader] Input {list(input_dict.keys())} shape: {[v.shape for v in input_dict.values()]}, dtype: {[v.dtype for v in input_dict.values()]}")
         return input_dict
@@ -331,8 +332,8 @@ def run_pipeline(sessions, label):
     inputs = tokenizer(prompt, return_tensors="np", padding="max_length", max_length=77, truncation=True)
     uncond_inputs = tokenizer([""], return_tensors="np", padding="max_length", max_length=77, truncation=True)
 
-    text_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: inputs["input_ids"].astype(np.int32)})[0].astype(np.float32)
-    uncond_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: uncond_inputs["input_ids"].astype(np.int32)})[0].astype(np.float32)
+    text_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: inputs["input_ids"].astype(np.int64)})[0].astype(np.float32)
+    uncond_emb = text_encoder_sess.run(None, {text_encoder_sess.get_inputs()[0].name: uncond_inputs["input_ids"].astype(np.int64)})[0].astype(np.float32)
     text_embeddings = np.concatenate([uncond_emb, text_emb], axis=0)
 
     latents = np.random.randn(*latent_shape).astype(np.float32) * scheduler.init_noise_sigma
@@ -437,6 +438,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 benchmark_path=Path.cwd().parent / "benchmark"
+benchmark_path.mkdir(parents=True, exist_ok=True)
 # Save benchmark data
 benchmark_data = {
     "Model Type": ["Base", "Quantized"],
@@ -448,8 +450,20 @@ benchmark_data = {
 df = pd.DataFrame(benchmark_data)
 
 # Save table
+diffusion_path=benchmark_path / "diffusion"
+diffusion_path.mkdir(parents=True, exist_ok=True)
 csv_path = benchmark_path / "diffusion" / "benchmark_results.csv"
 md_path = benchmark_path / "diffusion" /"benchmark_results.md"
+# Ensure csv_path and md_path are not directories
+if csv_path.exists() and csv_path.is_dir():
+    print(f"⚠️ Removing folder mistakenly created at CSV path: {csv_path}")
+    csv_path.rmdir()
+
+if md_path.exists() and md_path.is_dir():
+    print(f"⚠️ Removing folder mistakenly created at Markdown path: {md_path}")
+    md_path.rmdir()
+# csv_path.mkdir(parents=True, exist_ok=True)
+# md_path.mkdir(parents=True, exist_ok=True)
 df.to_csv(csv_path, index=False)
 df.to_markdown(md_path, index=False)
 
