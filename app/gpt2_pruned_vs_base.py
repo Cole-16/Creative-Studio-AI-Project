@@ -12,9 +12,11 @@ import numpy
 import json
 import random
 import gc
+import pandas as pd
+import matplotlib.pyplot as plt
 
 model_id = "openai-community/gpt2-medium"
-output_dir = Path("onnx/gpt2")
+output_dir = Path.cwd().parent / "models" / "onnx" / "gpt2"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # Load base model & tokenizer
@@ -103,6 +105,10 @@ base_kv = benchmark_onnx_model(base_onnx_path, use_kv_cache=True)
 pruned_no_kv = benchmark_onnx_model(pruned_onnx_path, use_kv_cache=False)
 pruned_kv = benchmark_onnx_model(pruned_onnx_path, use_kv_cache=True)
 
+benchmark_dir = Path.cwd().parent / "benchmark" / "gpt2"
+benchmark_dir.mkdir(parents=True, exist_ok=True)
+
+
 # Table output
 def print_comparison_table():
     headers = ["Metric", "Base", "Base + KV", "Pruned", "Pruned + KV"]
@@ -128,5 +134,44 @@ def print_comparison_table():
     print("-" * 70)
     for row in rows:
         print(" | ".join(row))
+    return rows,headers
 
-print_comparison_table()
+rows,headers=print_comparison_table()
+
+# Convert to DataFrame
+df = pd.DataFrame(rows, columns=headers)
+
+# Save as CSV and Markdown
+csv_path = benchmark_dir / "gpt2_benchmark_results.csv"
+md_path = benchmark_dir / "gpt2_benchmark_results.md"
+df.to_csv(csv_path, index=False)
+df.to_markdown(md_path, index=False)
+
+print(f"\n✅ Benchmark saved to:\nCSV: {csv_path}\nMarkdown: {md_path}")
+
+# Plot grouped bar chart
+fig, ax = plt.subplots(figsize=(12, 6))
+x = range(len(df))
+bar_width = 0.2
+
+# Offsets for each group
+for i, col in enumerate(headers[1:]):
+    ax.bar(
+        [xi + i * bar_width for xi in x],
+        df[col].astype(float),
+        width=bar_width,
+        label=col
+    )
+
+ax.set_xticks([xi + bar_width * 1.5 for xi in x])
+ax.set_xticklabels(df["Metric"], rotation=45)
+ax.set_ylabel("Value")
+ax.set_title("GPT-2 Benchmark Comparison")
+ax.legend()
+plt.tight_layout()
+
+chart_path = benchmark_dir / "gpt2_benchmark_chart.png"
+plt.savefig(chart_path)
+plt.close()
+
+print(f"📈 Chart saved to: {chart_path}")

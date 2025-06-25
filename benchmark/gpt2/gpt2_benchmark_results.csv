@@ -1,0 +1,6 @@
+Metric,Base,Base + KV,Pruned,Pruned + KV
+Model Size (MB),1550.66,1550.66,1550.66,1550.66
+Avg Latency (ms),115.89,96.79,107.23,108.23
+P95 Latency (ms),222.90,116.17,137.41,153.85
+Avg Memory (MB),5329.77,5331.41,5333.48,5338.41
+Tokens/sec,8.63,10.33,9.33,9.24
