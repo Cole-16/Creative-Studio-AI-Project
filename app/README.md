@@ -55,13 +55,18 @@ For the text generation model I used pruning and kv caching to optimize the text
 
   ![image](https://github.com/user-attachments/assets/91e0e06b-1d43-4d11-ba07-dcd93498846b)
 
--KV caching:
+- KV caching:
 
   ![image](https://github.com/user-attachments/assets/58790934-523b-43f7-91da-a86e8ffc04d5)
 
 Both of these optimizations did help in terms of speed and resources but it badly affected the quality of the generated text from what I saw. Using no optimization techniques my text generation stayed on track and produced rather good creative outputs but with the optimization it struggled to stay on topic and usually drifted into typing nonsense. I even tried some repetition handling and warnings where it would basically tell the model it was wrong for having repition in its outputs and that still did not help. That is why these files are seperate from the full demo as the tradeoff for the functionality was not worth it from what I saw in my examples. So, I decided to stick with the base model with no optimization for the full demo but did keep them  in these other filesfor benchmarking purposes. 
 
 Example Benchmark output from gpt2_pruned_vs_base.py:
+
+![image](https://github.com/user-attachments/assets/98d9d4a3-24fa-423e-9b57-b9e6c8092783)
+
+![image](https://github.com/user-attachments/assets/418397f8-04d4-4265-ae09-1be34bdd3cc3)
+
 
 
 ##### Optimizing Stable Diffusion Image Generator
@@ -150,6 +155,11 @@ Example output:
 This script converts the openai-community/gpt2-medium huggingface model to onnx and then runs through kv caching and pruning optimization techniques and displays the differences between the base and pruned benchmarking. 
 
 Example output:
+
+![image](https://github.com/user-attachments/assets/6fccfe6e-57b9-4786-b123-4ff7a5a7d8e6)
+
+![image](https://github.com/user-attachments/assets/fe1022e7-da59-46ec-a7f2-e21e72fad896)
+
 
 
 ### stable_diffusion_to_onnx_64px_quantized.py
