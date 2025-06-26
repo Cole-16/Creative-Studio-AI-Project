@@ -209,9 +209,9 @@ print(f"\n✅ Image saved at: {output_path}")
 del text_encoder_sess, unet_sess, vae_decoder_sess, latents, decoded
 gc.collect()
 
-# #load yolov8 for image detection and masking
 
-# ## manual masking 
+
+# ## manual masking commented out to save if needed later
 # #--- Step 1: Select box manually ---
 # coords = []
 
@@ -352,7 +352,11 @@ def apply_clipseg_and_blend(image_pil, text_prompt, color_rgb, alpha=0.6):
 # --- Run on both images ---
 image_results = []
 for filename in image_filenames:
-    image_path = onnx_dir / filename
+    # if the quality image exists for comparison grab it from docs location
+    if filename == 'quality_image.png':
+        image_path = parent_path / "docs" / "quality_image.png"
+    else:
+        image_path = onnx_dir / filename
     image_pil = Image.open(image_path).convert("RGB")
     original, edited = apply_clipseg_and_blend(image_pil, clipseg_prompt, target_rgb)
     image_results.append((original, edited))
@@ -427,146 +431,5 @@ plt.show()
 
 
 
-
-
-#  # --- Step 1: Load model and processor ---
-# clipseg_model_id = "CIDAS/clipseg-rd64-refined"
-# clipseg_model = CLIPSegForImageSegmentation.from_pretrained(clipseg_model_id)
-# clipseg_processor = CLIPSegProcessor.from_pretrained(clipseg_model_id)
-# print("✅ Model architecture:", type(clipseg_model))
-# print("✅ Output logits shape (after forward pass):", clipseg_model(**clipseg_processor(["tree"], images=[Image.new("RGB", (512, 512))], return_tensors="pt")).logits.shape)
-# # --- Step 2: Load input image ---
-# image_path = onnx_dir / "test_output.png"
-# image_pil = Image.open(image_path).convert("RGB")
-
-# # --- Step 3: Get text prompt from user ---
-# clipseg_prompt = input("🖋️ What do you want to mask in the image? (e.g., 'palm tree'): ").strip()
-
-# # --- Step 4: Prepare inputs ---
-# inputs = clipseg_processor(
-#     text=[clipseg_prompt], 
-#     images=[image_pil], 
-#     return_tensors="pt", 
-#     padding=True
-# )
-# print("Input pixel_values shape:", inputs["pixel_values"].shape)
-# print("Input input_ids shape:", inputs["input_ids"].shape)
-# # --- Step 5: Run model ---
-# with torch.no_grad():
-#     outputs = clipseg_model(**inputs)
-
-# print(f"📐 Model output shape: {outputs.logits.shape}")
-# print(f"logits type: {type(outputs.logits)}")
-# print(f"logits shape: {outputs.logits.shape}")
-
-# # logits should be 4D: [batch, channels, height, width]
-# logits = outputs.logits  # still tensor, no indexing yet
-
-# print(f"logits min: {logits.min().item()}, max: {logits.max().item()}")
-
-# # Let's grab the first sample, first channel:
-# logits_sample = logits[0, 0]  # shape should be (H, W)
-# print(f"logits_sample shape: {logits_sample.shape}")
-
-# # Now you can safely slice a patch:
-# # print(f"logits_sample slice:\n{logits_sample[170:180, 170:180]}")
-
-# logits_np = logits[0].cpu().numpy()
-# plt.imshow(np.clip(logits_np, -5, 5), cmap="inferno")
-# plt.colorbar()
-# plt.title("Raw logits clipped [-5,5]")
-# plt.show()
-# # Get mask: shape [batch, 1, 352, 352]
-# logits = outputs.logits[0]  # shape: (352, 352)
-
-# logits = logits.sigmoid().cpu().numpy()
-
-# mask_img = Image.fromarray((logits * 255).astype(np.uint8))
-# mask_resized = mask_img.resize(image_pil.size, resample=Image.BICUBIC)
-# mask_resized_np = np.array(mask_resized) / 255.0
-
-# # --- Step 7: Visualize or save ---
-# plt.imshow(np.array(image_pil))
-# plt.imshow(mask_resized_np, alpha=0.5, cmap="inferno")
-# plt.title(f"Mask for: '{clipseg_prompt}'")
-# plt.axis("off")
-# plt.show()
-
-# # Save if needed
-# cv2.imwrite(str(onnx_dir / "clipseg_mask.png"), (mask_resized_np * 255).astype(np.uint8))
-
-# image_rgb = np.array(image_pil)
-#     # --- Step 5: Prompt for Color Edit ---
-# color_map = {
-#     "red": [255, 0, 0],
-#     "green": [0, 255, 0],
-#     "blue": [0, 0, 255],
-#     "purple": [128, 0, 128],
-#     "yellow": [255, 255, 0],
-#     "orange": [255, 165, 0],
-#     "pink": [255, 192, 203],
-#     "brown": [139, 69, 19],
-#     "white": [255, 255, 255],
-#     "black": [0, 0, 0],
-# }
-
-# def extract_color_from_prompt(prompt):
-#     prompt = prompt.lower()
-#     for name in color_map:
-#         if name in prompt:
-#             return np.array(color_map[name], dtype=np.uint8)
-#     return None
-
-# user_prompt = input("\n🎨 Enter a color change prompt (e.g., 'change to purple'): ").strip()
-# target_rgb = extract_color_from_prompt(user_prompt)
-
-# if target_rgb is None:
-#     print("❌ No recognized color in the prompt.")
-# else:
-#     print(f"🎯 Applying blended color: {target_rgb} to masked area.")
-
-#     # Normalize the soft mask to float [0, 1]
-#     mask_float = np.clip(mask_resized_np.astype(np.float32), 0.0, 1.0)
-
-#     # Check mask and image shape match
-#     assert mask_float.shape == image_rgb.shape[:2], "Mask and image dimensions do not match!"
-
-#     alpha = 0.6  # strength of the color blending
-
-#     # Reshape target color for broadcasting
-#     target_rgb_array = target_rgb.astype(np.float32).reshape(1, 1, 3)
-#     image_float = image_rgb.astype(np.float32)
-
-#     # Perform alpha blending using the soft mask
-#     blended = ((1 - alpha * mask_float[..., None]) * image_float +
-#                (alpha * mask_float[..., None]) * target_rgb_array)
-
-#     blended = np.clip(blended, 0, 255).astype(np.uint8)
-
-#     # --- Step 7: Save and compare ---
-#     edited_path = onnx_dir / "edited_output.png"
-#     Image.fromarray(blended).save(edited_path)
-#     print(f"✅ Refined edited image saved at: {edited_path}")
-
-#     # Show original and edited side by side
-#     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-#     axs[0].imshow(image_rgb)
-#     axs[0].set_title("Original (Beach with palm tree)")
-#     axs[0].axis("off")
-#     axs[0].text(
-#     0.5, -0.1, "User Beginning Prompt: Beach with a palm tree.", transform=axs[0].transAxes,
-#     ha='center', va='top', fontsize=11, color="gray"
-#     )
-
-#     axs[1].imshow(blended)
-#     axs[1].set_title(f"Edited ({user_prompt})")
-#     axs[1].axis("off")
-#     axs[1].text(
-#     0.5, -0.1, "Edited picture with prompt: Change sky to green.", transform=axs[1].transAxes,
-#     ha='center', va='top', fontsize=11, color="gray"
-#     )
-
-#     plt.tight_layout()
-#     plt.show()
 
 

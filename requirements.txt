@@ -4,7 +4,7 @@ ultralytics
 # Core ONNX packages
 onnx
 onnxruntime
-optimum==1.13.2 
+optimum
 
 # Deep Learning Frameworks
 torch
@@ -17,7 +17,7 @@ pillow
 scikit-image
 
 # NLP & Speech Processing
-transformers==4.39.3 
+transformers
 datasets
 soundfile
 librosa
@@ -64,3 +64,4 @@ pre-commit
 
 # diffusers
 diffusers
+tabulate
