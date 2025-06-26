@@ -1,27 +1,97 @@
-# Content-Creation-AI-Project
+# 🧠 Creative Studio AI – ONNX-Optimized Generative Pipeline
 
-## Overview
-This repository contains materials for the Content Creation AI project choice  for the "Deploying Edge AI" master's level course. The current models in use for this project are openai-community/gpt2 and CompVis/stable-diffusion-v1-4. These will update as the project expands. The main goal of this project is to complete this project scope. 
+## 📘 Project Overview
+
+**Creative Studio AI** is an end-to-end generative AI pipeline designed to run on resource-constrained environments using ONNX-optimized models. It combines:
+
+- 🧠 **GPT-2 ONNX** for creative prompt generation  
+- 🎨 **Stable Diffusion ONNX** for AI image generation  
+- 🔍 **ClipSeg ONNX** for object detection and masking  
+- 🧰 Custom logic for region-based editing and visualization  
+
+The goal is to provide a lightweight, fast, and extensible pipeline for generating and editing creative AI outputs **entirely offline** using CPU-only inference, pruning, quantization, and model simplification.
+
+This repository contains materials for the Content Creation AI project choice  for the "Deploying Edge AI" master's level course.
 
 ![image](https://github.com/user-attachments/assets/4ec4c32c-ad25-407e-a9f4-fffabe35cf00)
 
 
 
+---
 
-## Architecture Diagram
+## 📊 Architectural Diagram
 
-## Quick Start Guide
+Below is a high-level overview of the full demo process from user input to final output:
 
-### If venv is already created.
-1. Once the virtual environment is created the first step is to clone the repo down so that you have the code in place in your venv. Once that is done make sure all packages    are installed that are needed with this project. Run "pip install -r requirements.txt" to install the required packages.
 
-2. When that is completed you are ready to test out the models. All python scripts are located under the /app/ folder. Currently there is one file and a readme in that location. The readme will explain in further detail waht each script contains and what it does. It will expand as the project grows. 
 
-3. As the project stands right now to start the model export and performance testing all you need to do is run the "convert_gpt2_to_onnx.py" script: 
+**Workflow Steps:**
 
-    - Make sure you are in the /app/ directory.
-    - run "python .\convert_gpt2_to_onnx.py" 
-    - You should recieve and output similar to this: 
-        ![image](https://github.com/user-attachments/assets/5f205cad-27a7-48dd-9d7e-f60d40a1eb5e)
+1. **User Input** → Keyword or phrase
+2. **GPT-2 ONNX** → Generates 3 creative text prompts
+3. **User Selection** → Chooses one prompt
+4. **Stable Diffusion ONNX** → Generates a 64x64 image
+5. **User Input** → Specifies object to edit (e.g., "tree")
+6. **ClipSeg ONNX** → Creates inferno-style mask
+7. **User Input** → Specifies desired edit (e.g., "change color to red")
+8. **Editing Logic** → Applies blended color edit using the mask
+9. **Output** → Saves edited image, original, and a higher-quality version
+10. **UI Display** → Shows side-by-side image comparison
 
-    
+---
+
+## 🚀 Quick Start Guide
+
+### 🔧 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/creative-studio-ai.git
+cd creative-studio-ai
+```
+
+### 🐍 2. Create a Virtual Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate        # On macOS/Linux
+venv\Scripts\activate           # On Windows
+```
+
+### 📦 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+> ⚠️ Some dependencies may require system packages (e.g., PyTorch/ONNXRuntime); refer to the `requirements.txt` for exact versions.
+
+### ▶️ 4. Run the Full Demo
+
+```bash
+cd app
+python full_demo.py
+```
+
+This will:
+
+- Load/export ONNX models (if not already cached)
+- Prompt the user for a keyword
+- Generate an image and let the user interactively apply an edit
+- Save and display a side-by-side comparison of the result
+
+---
+
+## 📂 More Information
+
+For **detailed milestone breakdowns**, **benchmark results**, and **per-script explanations**, be sure to read:
+
+📄 [`app/README.md`](app/README.md)
+
+This includes:
+
+- 📊 Benchmark graphs for quantization, pruning, and KV caching
+- 📄 Script-specific optimization summaries
+- 🔍 Trade-offs between performance and quality
+- 🎯 Phase-based development progress
+
+---
