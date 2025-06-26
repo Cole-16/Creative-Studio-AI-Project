@@ -185,4 +185,3 @@ Converts Stable Diffusion to ONNX, applies quantization, and benchmarks results.
 
 ![image](https://github.com/user-attachments/assets/2c3fa3c2-c581-4655-af41-407d3dd00b98)
 
----
