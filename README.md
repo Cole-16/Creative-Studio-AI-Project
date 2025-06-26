@@ -108,7 +108,7 @@ Below is a high-level overview of the full demo process from user input to final
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/creative-studio-ai.git
+git clone https://github.com/Cole-16/Creative-Studio-AI-Project.git
 cd creative-studio-ai
 ```
 
