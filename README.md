@@ -1,4 +1,4 @@
-# 🧠 Creative Studio AI – ONNX-Optimized Generative Pipeline
+# Creative Studio AI – ONNX-Optimized Generative Pipeline
 
 ## 📘 Project Overview
 
@@ -19,7 +19,7 @@ This repository contains materials for the Content Creation AI project choice  f
 
 ---
 
-## 📊 Architectural Diagram
+## Architectural Diagram
 
 Below is a high-level overview of the full demo process from user input to final output:
 
@@ -42,14 +42,14 @@ Below is a high-level overview of the full demo process from user input to final
 
 ## 🚀 Quick Start Guide
 
-### 🔧 1. Clone the Repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/your-username/creative-studio-ai.git
 cd creative-studio-ai
 ```
 
-### 🐍 2. Create a Virtual Environment
+### 2. Create a Virtual Environment
 
 ```bash
 python -m venv venv
@@ -57,7 +57,7 @@ source venv/bin/activate        # On macOS/Linux
 venv\Scripts\activate           # On Windows
 ```
 
-### 📦 3. Install Dependencies
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
