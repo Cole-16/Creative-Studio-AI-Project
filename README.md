@@ -25,6 +25,69 @@ Below is a high-level overview of the full demo process from user input to final
 
 
 
+```
++---------------------+
+|   User Input        |
+| (Keyword or Phrase) |
++---------+-----------+
+          |
+          v
++--------------------------+
+|     GPT-2 ONNX Model     |
+| Generates 3 text prompts |
++-----------+--------------+
+            |
+            v
++--------------------------+
+|  User Selects One Prompt |
++-----------+--------------+
+            |
+            v
++------------------------------+
+| Stable Diffusion ONNX Model |
+| Generates image (64x64)     |
++-----------+------------------+
+            |
+            v
++-----------------------------+
+| User selects object to edit |
+| (e.g., "sky", "tree")       |
++-----------+-----------------+
+            |
+            v
++----------------------------+
+|     ClipSeg ONNX Model     |
+| Creates inferno-style mask |
++-----------+----------------+
+            |
+            v
++----------------------------+
+|   User specifies edit type |
+| (e.g., "change color")     |
++-----------+----------------+
+            |
+            v
++-----------------------------+
+| Apply Edit with Blending   |
+| (Masked color replacement) |
++-----------+----------------+
+            |
+            v
++----------------------------------------+
+| Save Outputs:                          |
+| - Original Image                       |
+| - Edited Image                         |
+| - High-Quality Reference Output        |
++-----------+----------------------------+
+            |
+            v
++-----------------------------+
+| UI: Show side-by-side view |
+| of original vs edited image|
++-----------------------------+
+```
+
+
 **Workflow Steps:**
 
 1. **User Input** → Keyword or phrase
